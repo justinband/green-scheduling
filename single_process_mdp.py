@@ -27,47 +27,41 @@ class SingleProcessMDP():
         self.s = 0
         self.ns = ns
         self.na = 2
-        self.pause_action = 0
-        self.run_action = 1
-        self.job_complete = False
+        self.PAUSE = 0
+        self.RUN = 1
 
-        # Build transition matrix
-        self.p = np.zeros((self.ns, self.na, self.ns)) # nS x 2 x nS
-        for s in range(self.ns):
-            self.p[s, self.pause_action, s] = 1
+        def create_transitions():
+            p = np.zeros((self.ns, self.na, self.ns))
+            
+            for s in range(self.ns):
+                p[s, self.PAUSE, s] = 1 # Pause keeps same state
+                if s < self.ns - 1: # Run moves to next state
+                    p[s, self.RUN, s+1] = 1
+                else:
+                    p[s, self.RUN, s] = 1 # Final state, running keeps state
 
-            if s < self.ns - 1:
-                self.p[s, self.run_action, s+1] = 1
-            elif s == self.ns - 1:
-                self.p[s, self.run_action, s] = 1
+            return p
 
-            #TODO: What is ending criteria?
-            # if s == self.ns - 1: # last state. 
-            #     self.P[s, self.run_action, s+1]
+        def create_rewards():
+            r = np.zeros((self.ns, self.na))
+            r[self.ns - 1, self.RUN] = 1
 
-        # Define rewards
-        self.r = np.zeros((self.ns, self.na))
-        self.r[self.ns - 1, self.run_action] = 1
+            for s in range(self.ns-1):
+                r[s, self.PAUSE] = -0.5
+            return r
+    
+        self.p = create_transitions()
+        self.r = create_rewards()
 
-
+    
     def step(self, action):
         """
         Performs an action in the MDP
         """
         new_state = np.random.choice(np.arange(self.ns), p=self.p[self.s, action])
         reward = self.r[self.s, action]
-
-        # When we are at the final piece of a job and then decide to run the job
-        #   we are then finished.
-        # This is considered early stopping.
-        if self.s == self.ns-1 and action == self.run_action:
-            # We have completed! And we must also stop...
-            self.job_complete = True
-            new_state = new_state + 1
-
         self.s = new_state
-
-        return new_state, reward, self.job_complete
+        return new_state, reward
 
 
     def reset(self):
@@ -75,5 +69,4 @@ class SingleProcessMDP():
         Resets the environment
         """
         self.s = 0
-        self.job_complete = False
-        return self.s, self.job_complete
+        return self.s
