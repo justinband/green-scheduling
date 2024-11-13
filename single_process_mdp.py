@@ -27,46 +27,47 @@ class SingleProcessMDP():
         self.s = 0
         self.ns = ns
         self.na = 2
-        self.PAUSE = 0
-        self.RUN = 1
+        self.pause = 0
+        self.run = 1
+        self.done = False
 
-        def create_transitions():
-            p = np.zeros((self.ns, self.na, self.ns))
-            
-            for s in range(self.ns):
-                p[s, self.PAUSE, s] = 1 # Pause keeps same state
-                if s < self.ns - 1: # Run moves to next state
-                    p[s, self.RUN, s+1] = 1
-                else:
-                    p[s, self.RUN, s] = 1 # Final state, running keeps state
+        self.p = np.zeros((self.ns, self.na, self.ns))
+        for s in range(self.ns):
+            self.p[s, self.pause, s] = 1 # Pause keeps same state
+            if s < self.ns - 1: # Run moves to next state
+                self.p[s, self.run, s+1] = 1
+            else:
+                self.p[s, self.run, s] = 1 # Final state, running keeps state
 
-            return p
 
-        def create_rewards():
-            r = np.zeros((self.ns, self.na))
-            r[self.ns - 1, self.RUN] = 1
+        self.r = np.zeros((self.ns, self.na))
+        # energy = -0.5
+        self.r[self.ns-1, self.run] = 10
+        self.r[:self.ns-1, self.run] = 0.1
+        # self.r[:self.ns-1, self.pause] = energy        # Pausing cost (Idle cost)
+        # r[self.ns-1, self.run] = 1 * self.ns  # Completion reward
 
-            for s in range(self.ns-1):
-                r[s, self.PAUSE] = -0.5
-            return r
-    
-        self.p = create_transitions()
-        self.r = create_rewards()
-
-    
     def step(self, action):
         """
         Performs an action in the MDP
-        """
-        new_state = np.random.choice(np.arange(self.ns), p=self.p[self.s, action])
-        reward = self.r[self.s, action]
-        self.s = new_state
-        return new_state, reward
 
+        Early stopping. If in last state we simply stay there, getting no reward.
+        """
+        reward = self.r[self.s, action]
+
+        if ((action == self.run) and (self.s == self.ns-1)) or self.done:
+            self.done = True
+            return self.s, reward, self.done
+        else:
+            new_state = np.random.choice(np.arange(self.ns), p=self.p[self.s, action])
+            self.s = new_state
+            self.done = False
+            return new_state, reward, self.done
 
     def reset(self):
         """
         Resets the environment
         """
         self.s = 0
+        self.done = False
         return self.s
