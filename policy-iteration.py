@@ -1,4 +1,4 @@
-from single_process_mdp import SingleProcessMDP
+from mdps.single_process import SingleProcessMDP
 import numpy as np
 
 class PI():
