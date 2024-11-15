@@ -24,6 +24,7 @@ class SingleProcessMDP():
         self.done = False
         self.name = "Single Process MDP"
 
+        # Transition matrix
         self.p = np.zeros((self.ns, self.na, self.ns))
         for s in range(self.ns):
             self.p[s, self.pause, s] = 1 # Pause keeps same state
@@ -32,8 +33,13 @@ class SingleProcessMDP():
             else:
                 self.p[s, self.run, s] = 1 # Final state, running keeps state
 
+        # Reward matrix
         self.r = np.ones((self.ns, self.na))
         self.r[self.ns-1, self.run] = 0
+        # FIXME: While this is bounded in [0, 1] we want to compare it to the energy
+        #   costs, which are bounded [0, 1]. However, if we use loss=1 at each point it
+        #   grows a lot.
+        self.r[:self.ns-1, self.run] = 1/(self.ns) # Within [0,1]
 
     def step(self, action):
         """
@@ -90,7 +96,7 @@ class SingleProcessCostsMDP():
                                  self.loss_min,
                                  self.loss_max)
 
-        # Transition matrix stays the same
+        # Transition matrix
         self.p = np.zeros((self.ns, self.na, self.ns))
         for s in range(self.ns):
             self.p[s, self.pause, s] = 1 # Pause keeps same state
@@ -99,18 +105,9 @@ class SingleProcessCostsMDP():
             else:
                 self.p[s, self.run, s] = 1 # Final state, running keeps state
 
-
+        # Reward Matirx
         self.r = np.ones((self.ns, self.na))
-
-        # Completion reward
-        # TODO: Incorporate running cost to complete too
-        self.r[self.ns-1, self.run] = self.loss_min
-
-        # Run cost
-        # x = - self.energy.sample_normalized_data(self.ns-1, self.reward_min, self.reward_max)
-        print("R:", self.r[:self.ns, self.run])
-        # self.r[:self.ns-1, self.run] = 
-
+        self.r[self.ns-1, self.run] = 0 # TODO: Incorporate running cost to complete too
 
     def step(self, action):
         """
@@ -119,17 +116,16 @@ class SingleProcessCostsMDP():
         Early stopping applied. i.e. In last state and run action is called then
         we stop and the max reward is given.
         """
-
         if ((action == self.run) and (self.s == self.ns-1)) or self.done:
-            self.done = True
             loss = self.r[self.s, action]
+            self.done = True
             return self.s, loss, self.done
         else:
-            new_state = np.random.choice(np.arange(self.ns), p=self.p[self.s, action])
-            self.s = new_state
-            self.done = False
             loss = self.energy.sample_normalized_data(1)[0]
-            return new_state, loss, self.done
+            # loss = self.r[self.s, action]
+            self.s = np.random.choice(np.arange(self.ns), p=self.p[self.s, action])
+            self.done = False
+            return self.s, loss, self.done
 
     def reset(self):
         """
