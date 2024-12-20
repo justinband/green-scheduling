@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 
@@ -48,6 +49,8 @@ class QLearn:
 
     def execute(self):
         counts = np.zeros((self.env.ns, self.env.na))
+        # q = np.zeros((self.env.ns + 1, self.env.na))  # Add terminal state
+        np.random.seed(100)
         q = np.random.rand(self.env.ns + 1, self.env.na)  # Add terminal state
 
         # q = np.random.rand(self.env.ns, self.env.na) # Initialize Q-value table
@@ -65,7 +68,7 @@ class QLearn:
                 losses = [pause_loss, self.env.get_loss()]
 
                 # Last state is "done" state. Q = 0 is best.
-                if s_prime == self.env.ns: 
+                if s_prime == self.env.ns:
                     q[s_prime, :] = 0
                     # s_prime = self.env.ns - 1
 
@@ -162,8 +165,26 @@ class QLearn:
         plt.show()
 
     def plot_rewards(self, title, xaxis_title, yaxis_title):
-        plt.plot(self.total_rewards)
+        # plt.plot(self.total_rewards, alpha=0.5)
+        # plt.title(title)
+        # plt.xlabel(xaxis_title)
+        # plt.ylabel(yaxis_title)
+        # plt.show()
+
+        episodes = np.arange(1,len(self.total_rewards)+1)
+        costs = self.total_rewards
+
+        window_size = 500  # Adjust this based on your dataset
+        smoothed_costs = pd.Series(costs).rolling(window=window_size, min_periods=1).mean()
+
+        # Plot original data
+        plt.figure(figsize=(10, 6))
+        plt.plot(episodes, costs, label='Raw Data', alpha=0.5, color='green')
+        plt.plot(episodes, smoothed_costs, color='red', label=f'Moving Average (window={window_size})')
+
+        # Add labels and legend
         plt.title(title)
         plt.xlabel(xaxis_title)
         plt.ylabel(yaxis_title)
+        plt.legend()
         plt.show()
