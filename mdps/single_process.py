@@ -95,6 +95,7 @@ class SingleProcessCostsMDP():
         self.energy = EnergyData('energy/DK_2023_hourly.csv',
                                  self.loss_min,
                                  self.loss_max)
+        self.energy_cost = []
 
         # Transition matrix
         self.p = np.zeros((self.ns, self.na, self.ns))
@@ -117,12 +118,16 @@ class SingleProcessCostsMDP():
         we stop and the max reward is given.
         """
         if ((action == self.run) and (self.s == self.ns-1)) or self.done:
-            loss = self.r[self.s, action]
+            loss = self.r[self.s, action] + self.energy.sample_normalized_data(1)[0]
+            self.energy_cost.append(loss)
+
             self.done = True
             return self.s, loss, self.done
         else:
             loss = self.energy.sample_normalized_data(1)[0]
             # loss = self.r[self.s, action]
+            self.energy_cost.append(loss)
+
             self.s = np.random.choice(np.arange(self.ns), p=self.p[self.s, action])
             self.done = False
             return self.s, loss, self.done
@@ -134,4 +139,3 @@ class SingleProcessCostsMDP():
         self.s = 0
         self.done = False
         return self.s
-
