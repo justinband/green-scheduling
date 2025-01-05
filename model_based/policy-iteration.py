@@ -1,4 +1,5 @@
-from mdps.single_process import SingleProcessMDP
+from mdps.single_process import SingleProcessMDP, SingleProcessCostsMDP
+from mdps.latency import MDPLatency
 import numpy as np
 
 class PI():
@@ -56,6 +57,8 @@ class PI():
 
 
 NUM_STATES = 10
-env = SingleProcessMDP(NUM_STATES)
+# env = SingleProcessCostsMDP(NUM_STATES)
+# env = SingleProcessMDP(NUM_STATES)
+env = MDPLatency(NUM_STATES)
 pi = PI(env)
 pi.execute()

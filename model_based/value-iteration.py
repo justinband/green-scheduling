@@ -1,4 +1,5 @@
-from mdps.single_process import SingleProcessMDP
+from mdps.single_process import SingleProcessMDP, SingleProcessCostsMDP
+from mdps.latency import MDPLatency
 import numpy as np
 
 class VI():
@@ -50,6 +51,8 @@ class VI():
 
 
 NUM_STATES = 10
-env = SingleProcessMDP(NUM_STATES)
+# env = SingleProcessCostsMDP(NUM_STATES)
+# env = SingleProcessMDP(NUM_STATES)
+env = MDPLatency(NUM_STATES)
 vi = VI(env)
 vi.execute()
