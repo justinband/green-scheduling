@@ -1,25 +1,32 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 from tqdm.auto import tqdm
 
 class QLearn:
     """
     QLearn
     """
-    def __init__(self, env, epsilon = 0.1, gamma = 1, episodes = 100, alpha = 1e4):
+    def __init__(self, env, epsilon = 0.1, gamma = 1, episodes = 100, alpha = None, beta = 0.01):
         self.env = env
         self.epsilon = epsilon  # exploration rate
         self.gamma = gamma      # discount factor
+        self.beta = beta
+        if alpha is not None:
+            self.alpha = 1e-6
+        else:
+            self.alpha = alpha
+
         self.episodes = episodes
         self.q_history = None
         self.optimal_policy = None
-        self.optimal_q = None
 
         self.total_rewards = np.zeros((self.episodes))
         self.energy_consumed = np.empty((self.episodes))
         self.mse_loss = np.empty((self.episodes))
         self.mae_loss = np.empty((self.episodes))
+
 
     def reset(self):
         self.q_history = None
@@ -27,30 +34,32 @@ class QLearn:
         s = self.env.reset()
         return s
 
-    def choose_action(self, q, s, t):
+    def choose_action(self, q, s):
         if np.random.rand() < self.epsilon:
             a = np.random.choice(self.env.na)
-            if t == 100:
-                print("RANDOM! ", a)
             return a
         else:
             # Choose min?
             return np.argmin(q[s])
         
-    def q_update(self, s, a, s_prime, q, loss, counts):
+    def q_update(self, s, a, s_prime, q, loss, t, counts):
         # Q(s, a) = Q(s, a) + alpha(loss + gamma(Q(s, a) - min_a(Q(s', a))))
-        # FIXME: Should it be:
         delta = loss + self.gamma * np.min(q[s_prime]) - q[s, a]
         # delta = loss + self.gamma * (q[s, a] - np.min(q[s_prime], axis=0))
-        alpha = 0.000001
         # alpha = 2 / (counts[s, a]**(2/3) + 1)
-        return q[s, a] + (alpha * delta)
-                
 
-    def execute(self):
+        alpha = self.alpha
+        # alpha = self.alpha / (1 + self.beta * t) # decaying alpha
+        return q[s, a] + (alpha * delta)
+
+    def execute_informed(self, seed=None):
+        all_losses = np.zeros((self.episodes))
+
+        if seed is not None:
+            np.random.seed(seed)
+
         counts = np.zeros((self.env.ns, self.env.na))
         # q = np.zeros((self.env.ns + 1, self.env.na))  # Add terminal state
-        np.random.seed(100)
         q = np.random.rand(self.env.ns + 1, self.env.na)  # Add terminal state
 
         # q = np.random.rand(self.env.ns, self.env.na) # Initialize Q-value table
@@ -74,10 +83,10 @@ class QLearn:
 
                 q_copy = q.copy() # make temp updates
                 for (a, loss) in zip(actions, losses):
-                    q_copy[s, a] = self.q_update(s, a, s_prime, q_copy, loss, counts)
+                    q_copy[s, a] = self.q_update(s, a, s_prime, q_copy, loss, t, counts)
                 
 
-                a = self.choose_action(q, s, t) # choose best action
+                a = self.choose_action(q, s) # choose best action
                 s, loss, done = self.env.step(a) # perform action
 
                 q[s, a] = q_copy[s, a] # Update with chosen action Q val
@@ -87,104 +96,94 @@ class QLearn:
                 counts[s, a] += 1
                 q_history[t] = q
 
-                if t==100:
-                    print(f's: {s}, a: {a}, Q_p: {q[s, self.env.pause]}, Q_r: {q[s, self.env.run]}')
-
-            self.total_rewards[t] = episode_loss
+            all_losses[t] = episode_loss
 
         self.q_history = q_history
-        self.optimal_q = q_history[-1]
-        self.optimal_policy = np.argmin(self.optimal_q, axis=1) # Minimize losses!
+        optimal_q = q_history[-1]
+        optimal_policy = np.argmin(optimal_q, axis=1) # Minimize losses!
+        self.total_rewards = all_losses
+        return all_losses, optimal_policy
 
 
-    # def execute(self):
-    #     counts = np.zeros((self.env.ns, self.env.na))
-    #     q = np.random.rand(self.env.ns, self.env.na) # Initialize Q-value table
-    #     q_history = np.zeros((self.episodes, self.env.ns, self.env.na))
+    def execute_uninformed(self, seed=None):
+        losses = np.zeros((self.episodes))
 
-    #     for t in tqdm(range(self.episodes)):
-    #         s = self.env.reset() # Reset the MDP in each episode
+        if seed is not None:
+            np.random.seed(seed)
 
-    #         done = False
+        counts = np.zeros((self.env.ns, self.env.na))
+        q = np.random.rand(self.env.ns, self.env.na) # Initialize Q-value table
+        q_history = np.zeros((self.episodes, self.env.ns, self.env.na))
 
-    #         curr_reward = 0
-    #         while not done: # Repeat until the job completes
-    #             a = self.choose_action(q, s)
+        for t in tqdm(range(self.episodes)):
+            s = self.env.reset() # Reset the MDP in each episode
+            done = False
+            episode_loss = 0
 
-    #             counts[s, a] += 1
+            while not done: # Repeat until the job completes
+                a = self.choose_action(q, s)
+                s_prime, loss, is_done = self.env.step(a) # perform action
 
-    #             # Perform action -> get new state, reward (loss), and done flag
-    #             s_prime, reward, is_done = self.env.step(a)
-    #             curr_reward += reward
+                counts[s, a] += 1
+                q[s, a] = self.q_update(s, a, s_prime, q, loss, t, counts)
+            
+                episode_loss += loss
+                q_history[t] = q
 
-    #             # Update Q-Value
-    #             delta = reward + self.gamma * (np.min(q[s_prime], axis=0)) - q[s, a]
-    #             alpha = 2 / (counts[s, a]**(2/3) + 1)
-    #             q[s, a] = q[s, a] + (alpha * delta)
-    #             q_history[t] = q
+                s = s_prime # Move to next state
+                done = is_done
 
-    #             # Move to next state
-    #             s = s_prime
-    #             done = is_done
+            losses[t] = episode_loss
+            
+        optimal_q = q_history[-1]
+        optimal_policy = np.argmin(optimal_q, axis=1) # Minimize losses!
+        return losses, optimal_policy
 
-    #             # Track rewards
-    #             self.total_rewards[t] = curr_reward
+    def plot_losses(self,
+                    losses,
+                    title,
+                    xaxis_title,
+                    yaxis_title,
+                    window=500,
+                    min_episode=1,
+                    show_std_dev=True
+                    ):
 
-    #     self.q_history = q_history
-    #     self.optimal_q = q_history[-1]
-    #     self.optimal_policy = np.argmin(self.optimal_q, axis=1) # Minimize losses!
-    #     # return q_history
+        episodes = np.arange(min_episode, min_episode + len(losses))
+        # episodes = np.arange(1,len(losses)+1)
 
-    
-    def compute_loss(self):
-        for i in range(self.episodes):
-            # TODO: Difference in policy. Make it apparent.
-            diff = self.q_history[-1] - self.q_history[i]
+        window_size = window  # Calculate trend line
 
-            infnorm = np.linalg.norm(diff, ord=np.inf)
-            self.mae_loss[i] = infnorm
-            self.mse_loss[i] = np.mean(diff ** 2)
+        rolling = pd.Series(losses).rolling(window=window_size, min_periods=1)
+        smoothed_losses = rolling.mean()
+        std_dev_losses = rolling.std()
 
-    def show_optimal(self):
-        print("Optimal Q:", self.optimal_q)
-        print("Optimal Policy:", self.optimal_policy)
+        sns.set_theme(style='white')
 
-    def plot_error(self, plot_mae=False, plot_mse=True):
-        self.compute_loss()
-        if plot_mae:
-            plt.plot(self.mae_loss, label="Mean Absolute Error")
-        if plot_mse:
-            plt.plot(self.mse_loss, label="Mean Squared Error")
-
-        plt.xlabel("Episode")
-        plt.ylabel("Error")
-        plt.title(f"Q-Learning Error against {self.env.name}")
-
-        plt.legend()
-
-        plt.show()
-
-    def plot_rewards(self, title, xaxis_title, yaxis_title):
-        # plt.plot(self.total_rewards, alpha=0.5)
-        # plt.title(title)
-        # plt.xlabel(xaxis_title)
-        # plt.ylabel(yaxis_title)
-        # plt.show()
-
-        episodes = np.arange(1,len(self.total_rewards)+1)
-        costs = self.total_rewards
-
-        window_size = 500  # Adjust this based on your dataset
-        smoothed_costs = pd.Series(costs).rolling(window=window_size, min_periods=1).mean()
-
-        # Plot original data
         plt.figure(figsize=(10, 6))
-        plt.plot(episodes, costs, label='Raw Data', alpha=0.5, color='green')
-        plt.plot(episodes, smoothed_costs, color='red', label=f'Moving Average (window={window_size})')
+        plt.plot(episodes,
+                 losses,
+                 label='',
+                 alpha=0.5,
+                 color='royalblue')
+        plt.plot(episodes,
+                 smoothed_losses,
+                 color='red',
+                 label=f'Average (window = {window_size})')
+        
+        if show_std_dev:
+            plt.fill_between(episodes,
+                            smoothed_losses - std_dev_losses,
+                            smoothed_losses + std_dev_losses,
+                            color='blue',
+                            alpha=0.2,
+                            label='±1 Std Dev')
 
         # Add labels and legend
-        plt.title(title)
-        plt.xlabel(xaxis_title)
-        plt.ylabel(yaxis_title)
+        plt.title(title, fontsize=16)
+        plt.xlabel(xaxis_title, fontsize=12)
+        plt.ylabel(yaxis_title, fontsize=12)
         plt.legend()
+        plt.grid(True, linestyle='--', linewidth=0.5)
+        plt.tight_layout()
         plt.show()
