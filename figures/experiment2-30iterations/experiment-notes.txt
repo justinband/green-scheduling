@@ -1,0 +1,35 @@
+Final Uninformed Loss: 2.44
+Final Informed Loss: 2.28
+Change in total carbon intensity from Uninformed to Informed: -6.64%
+
+Seeds:
+[3925,
+ 2515,
+ 4008,
+ 4349,
+ 4775,
+ 199,
+ 4769,
+ 768,
+ 2589,
+ 3985,
+ 3768,
+ 4731,
+ 576,
+ 2770,
+ 780,
+ 4598,
+ 2353,
+ 3543,
+ 1383,
+ 32,
+ 2807,
+ 4369,
+ 813,
+ 3844,
+ 3907,
+ 2109,
+ 1196,
+ 299,
+ 1177,
+ 1816]

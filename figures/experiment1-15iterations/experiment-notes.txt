@@ -1,0 +1,24 @@
+Final Uninformed Loss: 2.36
+Final Informed Loss: 2.31
+
+Trend line Uninf std dev: 0.10654988734645907
+Trend line inf std dev: 0.5064266650401664
+
+Change in total carbon intensity from Uninformed to Informed: -1.86%
+
+Seeds: [
+ 1980,
+ 3462,
+ 2473,
+ 2989,
+ 2638,
+ 541,
+ 3735,
+ 2422,
+ 3317,
+ 3284,
+ 3178,
+ 4590,
+ 212,
+ 2443,
+ 707]
